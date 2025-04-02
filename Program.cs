@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
+using static System.Net.Mime.MediaTypeNames;
 
 
 class Laguerre
@@ -226,35 +228,55 @@ class Program
 {
     static void Main()
     {
-        var test = new Laguerre(5, 5, 2, 4, 0.001, new List<double>() { 0, 1, 2, 3, 4, 5 });
-        var table = test.TabulateLaguerre();
-
-        Console.Write("t_val\t");
-        for (int i = 0; i < test.N; i++)
+        var ifilePath = ".\\input_params.csv";
+        var ofilePath = ".\\output_results.csv";
+        using (StreamReader reader = new StreamReader(ifilePath))
         {
-            Console.Write($"L_{i}\t");
-        }
-        Console.WriteLine();
+            reader.ReadLine(); // Skip header row
 
-        for (int j = 0; j < table["t_val"].Count; j++)
-        {
-            Console.Write($"{table["t_val"][j]:0.###}\t");
-            for (int i = 0; i < test.N; i++)
+            string line = reader.ReadLine();
+
+            string[] values = line.Split(',');
+
+            var t_values = values[5].Split(';');
+  
+            var k             = int.Parse(values[7]);
+            var parsedT       = double.Parse(values[0]);
+            var parsedN       = int.Parse(values[1]);
+            var parsedBeta    = double.Parse(values[2]);
+            var parsedSigma   = double.Parse(values[3]);
+            var parsedEpsilon = double.Parse(values[4], CultureInfo.InvariantCulture);
+            var parsedTValues = new List<double>();
+            foreach (var tVal in t_values)
             {
-                Console.Write($"{table[$"L_{i}"][j]:0.###}\t");
+                if (double.TryParse(tVal, NumberStyles.Float, CultureInfo.InvariantCulture, out double parsedValue))
+                {
+                    parsedTValues.Add(parsedValue);
+                }
+                else
+                {
+                    throw new FormatException($"Invalid format for t value: {tVal}");
+                }
             }
-            Console.WriteLine();
+
+            var test1 = new Laguerre(parsedT, parsedN, parsedBeta, parsedSigma, parsedEpsilon, parsedTValues); var test2 = new IntegrateLaguerre(test1);
+            var test3 = new ReverseLaguerre(test1, new List<double>() { });
+
+            var table = test1.TabulateLaguerre();
+            using (StreamWriter writer = new StreamWriter(ofilePath))
+            {
+                writer.WriteLine("integral_result,coefficients,reverse_value,t_epsilon");
+                writer.WriteLine(
+                    $"{test2.Integrate(x => Math.Sin(x), k).ToString(CultureInfo.InvariantCulture)}," +
+                    $"\"{string.Join(";", test3.LaguerreCoefficients(test2, x => Math.Sin(x)).Select(c => c.ToString(CultureInfo.InvariantCulture)))}\"," +
+                    $"{test3.ReverseFunc(parsedT).ToString(CultureInfo.InvariantCulture)}," +
+                    $"{test1.FindTEpsilon(3).ToString(CultureInfo.InvariantCulture)}"
+                );
+
+            }
+
+            System.Console.WriteLine("ALL_good");
+
         }
-        Console.WriteLine();
-        Console.WriteLine($"T Epsilon: {test.FindTEpsilon(3)}");
-
-        Console.WriteLine("-----------------------------");
-        Console.WriteLine("Iнтегрування");
-        var test2 = new IntegrateLaguerre(test);
-        Console.WriteLine($"Iнтеграл: {test2.Integrate(x => Math.Sin(x), 3)}");
-
-        var test3 = new ReverseLaguerre(test, new List<double>() { });
-        Console.WriteLine($"Коефіцієнти: {string.Join(", ", test3.LaguerreCoefficients(test2, x => Math.Sin(x)))}");
-        Console.WriteLine($"Реверсивне значення: {test3.ReverseFunc(5)}");
     }
 }
